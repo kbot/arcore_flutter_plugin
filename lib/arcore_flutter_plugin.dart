@@ -13,3 +13,7 @@ export 'package:arcore_flutter_plugin/src/arcore_plane.dart';
 export 'package:arcore_flutter_plugin/src/arcore_image.dart';
 export 'package:arcore_flutter_plugin/src/arcore_reference_node.dart';
 export 'package:arcore_flutter_plugin/src/arcore_augmented_image.dart';
+export 'package:arcore_flutter_plugin/src/arcore_pose.dart';
+export 'package:arcore_flutter_plugin/src/arcore_tracking_state.dart';
+
+

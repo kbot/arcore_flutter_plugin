@@ -1,14 +1,15 @@
-import 'dart:typed_data';
-
 import 'package:arcore_flutter_plugin/src/arcore_augmented_image.dart';
 import 'package:arcore_flutter_plugin/src/arcore_rotating_node.dart';
+import 'package:arcore_flutter_plugin/src/arcore_tracking_state.dart';
 import 'package:arcore_flutter_plugin/src/utils/vector_utils.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 
 import 'arcore_hit_test_result.dart';
 import 'arcore_node.dart';
 import 'arcore_plane.dart';
+import 'arcore_pose.dart';
 
 typedef StringResultHandler = void Function(String text);
 typedef UnsupportedHandler = void Function(String text);
@@ -16,19 +17,25 @@ typedef ArCoreHitResultHandler = void Function(List<ArCoreHitTestResult> hits);
 typedef ArCorePlaneHandler = void Function(ArCorePlane plane);
 typedef ArCoreAugmentedImageTrackingHandler = void Function(
     ArCoreAugmentedImage);
+typedef ArCoreOnCameraTrackingStateChangedHandler = void Function(
+    ArCoreTrackingState previous, ArCoreTrackingState current);
 
 const UTILS_CHANNEL_NAME = 'arcore_flutter_plugin/utils';
 
 class ArCoreController {
-  static checkArCoreAvailability() async {
+  static Future<bool> checkArCoreAvailability() async {
     final bool arcoreAvailable = await MethodChannel(UTILS_CHANNEL_NAME)
         .invokeMethod('checkArCoreApkAvailability');
     return arcoreAvailable;
   }
 
-  static checkIsArCoreInstalled() async {
-    final bool arcoreInstalled = await MethodChannel(UTILS_CHANNEL_NAME)
-        .invokeMethod('checkIfARCoreServicesInstalled');
+  static Future<bool> checkIsArCoreInstalled(
+      {bool userInitiated = false}) async {
+    final bool arcoreInstalled =
+        await MethodChannel(UTILS_CHANNEL_NAME).invokeMethod(
+      'checkIfARCoreServicesInstalled',
+      {"userInitiated": userInitiated},
+    );
     return arcoreInstalled;
   }
 
@@ -57,8 +64,9 @@ class ArCoreController {
 //  UnsupportedHandler onUnsupported;
   ArCoreHitResultHandler? onPlaneTap;
   ArCorePlaneHandler? onPlaneDetected;
-  String trackingState = '';
+  ArCoreTrackingState trackingState = ArCoreTrackingState.stopped;
   ArCoreAugmentedImageTrackingHandler? onTrackingImage;
+  ArCoreOnCameraTrackingStateChangedHandler? onCameraTrackingStateChanged;
 
   init() async {
     try {
@@ -106,8 +114,7 @@ class ArCoreController {
         }
         break;
       case 'getTrackingState':
-        // TRACKING, PAUSED or STOPPED
-        trackingState = call.arguments;
+        trackingState = ArCoreTrackingStateParsible.parse(call.arguments);
         if (debug ?? true) {
           print('Latest tracking state received is: $trackingState');
         }
@@ -126,7 +133,14 @@ class ArCoreController {
         }
         togglePlaneRenderer();
         break;
-
+      case 'onTrackingStateChanged':
+        // TRACKING, PAUSED or STOPPED
+        trackingState =
+            ArCoreTrackingStateParsible.parse(call.arguments["current"]);
+        final previousTrackingState =
+            ArCoreTrackingStateParsible.parse(call.arguments["previous"]);
+        onCameraTrackingStateChanged!(previousTrackingState, trackingState);
+        break;
       default:
         if (debug ?? true) {
           print('Unknown method ${call.method}');
@@ -176,10 +190,6 @@ class ArCoreController {
     assert(nodeName != null);
     return _channel.invokeMethod('removeARCoreNode', {'nodeName': nodeName});
   }
-    
-  Future<void> takeScreenshot() async{
-    return _channel.invokeMethod('takeScreenshot');
-  }
 
   Map<String, dynamic>? _addParentNodeNameToParams(
       Map<String, dynamic> geometryMap, String? parentNodeName) {
@@ -192,20 +202,41 @@ class ArCoreController {
     node.position?.addListener(() => _handlePositionChanged(node));
     node.shape?.materials.addListener(() => _updateMaterials(node));
     node.isEnabled.addListener(() => _handleIsEnabledChanged(node));
+    node.scale?.addListener(() => _handleScaleChanged(node));
+    node.rotation?.addListener(() => _handleRotationChanged(node));
 
     if (node is ArCoreRotatingNode) {
-      node.degreesPerSecond.addListener(() => _handleRotationChanged(node));
+      node.degreesPerSecond
+          .addListener(() => _handleDegreesPerSecondChanged(node));
     }
   }
 
   void _handlePositionChanged(ArCoreNode node) {
-    _channel.invokeMethod<void>('positionChanged',
-        _getHandlerParams(node, convertVector3ToMap(node.position?.value)));
+    _channel.invokeMethod<void>(
+        'positionChanged',
+        _getHandlerParams(
+            node, {"position": convertVector3ToMap(node.position?.value)}));
   }
 
-  void _handleRotationChanged(ArCoreRotatingNode node) {
-    _channel.invokeMethod<void>('rotationChanged',
-        {'name': node.name, 'degreesPerSecond': node.degreesPerSecond.value});
+  void _handleScaleChanged(ArCoreNode node) {
+    _channel.invokeMethod<void>(
+        'scaleChanged',
+        _getHandlerParams(
+            node, {"scale": convertVector3ToMap(node.scale?.value)}));
+  }
+
+  void _handleRotationChanged(ArCoreNode node) {
+    _channel.invokeMethod<void>(
+        'rotationChanged',
+        _getHandlerParams(
+            node, {"rotation": convertVector4ToMap(node.rotation?.value)}));
+  }
+
+  void _handleDegreesPerSecondChanged(ArCoreRotatingNode node) {
+    _channel.invokeMethod<void>(
+        'degreesPerSecondChanged',
+        _getHandlerParams(
+            node, {'degreesPerSecond': node.degreesPerSecond.value}));
   }
 
   void _updateMaterials(ArCoreNode node) {
@@ -262,5 +293,10 @@ class ArCoreController {
     } catch (ex) {
       print(ex);
     }
+  }
+
+  Future<ImageProvider> takeScreenshot() async {
+    final result = await _channel.invokeMethod<Uint8List>('takeScreenshot');
+    return MemoryImage(result!);
   }
 }

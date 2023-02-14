@@ -35,6 +35,10 @@ import android.os.Environment
 import android.view.PixelCopy
 import android.os.HandlerThread
 import android.content.ContextWrapper
+import com.difrancescogianmarco.arcore_flutter_plugin.utils.DecodableUtils
+import com.google.ar.sceneform.math.Quaternion
+import com.google.ar.sceneform.math.Vector3
+import java.io.ByteArrayOutputStream
 import java.io.FileOutputStream
 import java.io.File
 import java.io.IOException
@@ -53,6 +57,7 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
     private val RC_PERMISSIONS = 0x123
     private var sceneUpdateListener: Scene.OnUpdateListener
     private var faceSceneUpdateListener: Scene.OnUpdateListener
+    private var previousCameraTrackingState: TrackingState = TrackingState.STOPPED
 
     //AUGMENTEDFACE
     private var faceRegionsRenderable: ModelRenderable? = null
@@ -79,6 +84,11 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
         sceneUpdateListener = Scene.OnUpdateListener { frameTime ->
 
             val frame = arSceneView?.arFrame ?: return@OnUpdateListener
+
+            if (previousCameraTrackingState != frame.camera.trackingState) {
+                methodChannel.invokeMethod("onTrackingStateChanged", mapOf("current" to frame.camera.trackingState.toString(), "previous" to previousCameraTrackingState.toString()))
+            }
+            previousCameraTrackingState = frame.camera.trackingState
 
             if (frame.camera.trackingState != TrackingState.TRACKING) {
                 return@OnUpdateListener
@@ -192,12 +202,19 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
             }
             "positionChanged" -> {
                 debugLog(" positionChanged")
-
+                updatePosition(call, result)
             }
             "rotationChanged" -> {
                 debugLog(" rotationChanged")
                 updateRotation(call, result)
-
+            }
+            "scaleChanged" -> {
+                debugLog(" scaleChanged")
+                updateScale(call, result)
+            }
+            "degreesPerSecondChanged" -> {
+                debugLog(" degreesPerSecondChanged")
+                updateDegreesPerSecond(call, result)
             }
             "updateMaterials" -> {
                 debugLog(" updateMaterials")
@@ -210,7 +227,6 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
             "takeScreenshot" -> {
                 debugLog(" takeScreenshot")
                 takeScreenshot(call, result)
-
             }
             "loadMesh" -> {
                 val map = call.arguments as HashMap<String, Any>
@@ -324,10 +340,8 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
 
     private fun takeScreenshot(call: MethodCall, result: MethodChannel.Result) {
         try {
-            // create bitmap screen capture
-
             // Create a bitmap the size of the scene view.
-            val bitmap: Bitmap = Bitmap.createBitmap(arSceneView!!.getWidth(), arSceneView!!.getHeight(),
+            val bitmap: Bitmap = Bitmap.createBitmap(arSceneView!!.width, arSceneView!!.height,
                     Bitmap.Config.ARGB_8888)
 
             // Create a handler thread to offload the processing of the image.
@@ -336,21 +350,19 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
             // Make the request to copy.
             // Make the request to copy.
             PixelCopy.request(arSceneView!!, bitmap, { copyResult ->
-                if (copyResult === PixelCopy.SUCCESS) {
-                    try {
-                        saveBitmapToDisk(bitmap)
-                    } catch (e: IOException) {
-                        e.printStackTrace();
-                    }
+                if (copyResult == PixelCopy.SUCCESS) {
+                    val stream = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
+                    result.success(stream.toByteArray())
                 }
                 handlerThread.quitSafely()
-            }, Handler(handlerThread.getLooper()))
+            }, Handler(handlerThread.looper))
 
         } catch (e: Throwable) {
             // Several error may come out with file handling or DOM
             e.printStackTrace()
+            result.error("take_screenshot_error", e.message, null)
         }
-        result.success(null)
     }
 
     @Throws(IOException::class)
@@ -381,7 +393,7 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
         if (enableTapRecognizer != null && enableTapRecognizer) {
             arSceneView
                     ?.scene
-                    ?.setOnTouchListener { hitTestResult: HitTestResult, event: MotionEvent? ->
+                    ?.setOnTouchListener { hitTestResult: HitTestResult, event: MotionEvent ->
 
                         if (hitTestResult.node != null) {
                             debugLog(" onNodeTap " + hitTestResult.node?.name)
@@ -486,7 +498,43 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
         result.success(null)
     }
 
+    fun updatePosition(call: MethodCall, result: MethodChannel.Result) {
+        val name = call.argument<String>("name")
+        val node = arSceneView?.scene?.findByName(name)
+        debugLog("node:  $node")
+        val position = DecodableUtils.parseVector3(call.argument<HashMap<String, Double>?>("position"))
+        debugLog("position value:  $position")
+        if (position != null) {
+            node?.worldPosition = position
+        }
+        result.success(null)
+    }
+
     fun updateRotation(call: MethodCall, result: MethodChannel.Result) {
+        val name = call.argument<String>("name")
+        val node = arSceneView?.scene?.findByName(name)
+        debugLog("node:  $node")
+        val rotation = DecodableUtils.parseQuaternion(call.argument<HashMap<String, Double>?>("rotation"))
+        debugLog("rotation value:  $rotation")
+        if (rotation != null) {
+            node?.localRotation = rotation
+        }
+        result.success(null)
+    }
+
+    fun updateScale(call: MethodCall, result: MethodChannel.Result) {
+        val name = call.argument<String>("name")
+        val node = arSceneView?.scene?.findByName(name)
+        debugLog("node:  $node")
+        val scale = DecodableUtils.parseVector3(call.argument<HashMap<String, Double>?>("scale"))
+        debugLog("scale value:  $scale")
+        if (scale != null) {
+            node?.localScale = scale
+        }
+        result.success(null)
+    }
+
+    fun updateDegreesPerSecond(call: MethodCall, result: MethodChannel.Result) {
         val name = call.argument<String>("name")
         val node = arSceneView?.scene?.findByName(name) as RotatingNode
         debugLog("rotating node:  $node")
@@ -561,7 +609,11 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
                         config.augmentedFaceMode = Config.AugmentedFaceMode.MESH3D
                     }
                     config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
-                    config.focusMode = Config.FocusMode.AUTO;
+                    config.focusMode = Config.FocusMode.AUTO
+                    //TODO: make this variable
+                    config.planeFindingMode = Config.PlaneFindingMode.HORIZONTAL
+                    config.depthMode = Config.DepthMode.DISABLED
+
                     session.configure(config)
                     arSceneView?.setupSession(session)
                 }

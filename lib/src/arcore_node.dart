@@ -17,10 +17,10 @@ class ArCoreNode {
     Vector4? rotation,
     this.children = const [],
   })  : name = name ?? random_string.randomString(),
-        position = position != null ? ValueNotifier(position) : null,
-        scale = scale != null ? ValueNotifier(scale) : null,
-        rotation = rotation != null ? ValueNotifier(rotation) : null,
         isEnabled = ValueNotifier(isEnabled),
+        position = ValueNotifier(position ?? Vector3.zero()),
+        scale = ValueNotifier(scale ?? Vector3.all(1.0)),
+        rotation = ValueNotifier(rotation ?? Vector4.identity()),
         assert(!(shape != null && image != null));
 
   final List<ArCoreNode>? children;
