@@ -176,6 +176,10 @@ class ArCoreController {
     assert(nodeName != null);
     return _channel.invokeMethod('removeARCoreNode', {'nodeName': nodeName});
   }
+    
+  Future<void> takeScreenshot() async{
+    return _channel.invokeMethod('takeScreenshot');
+  }
 
   Map<String, dynamic>? _addParentNodeNameToParams(
       Map<String, dynamic> geometryMap, String? parentNodeName) {
