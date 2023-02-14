@@ -10,6 +10,7 @@ class ArCoreNode {
   ArCoreNode({
     this.shape,
     this.image,
+    bool isEnabled = true,
     String? name,
     Vector3? position,
     Vector3? scale,
@@ -19,6 +20,7 @@ class ArCoreNode {
         position = position != null ? ValueNotifier(position) : null,
         scale = scale != null ? ValueNotifier(scale) : null,
         rotation = rotation != null ? ValueNotifier(rotation) : null,
+        isEnabled = ValueNotifier(isEnabled),
         assert(!(shape != null && image != null));
 
   final List<ArCoreNode>? children;
@@ -35,8 +37,13 @@ class ArCoreNode {
 
   final ArCoreImage? image;
 
+  /// Determines the visibility of the node’s contents.
+  /// Defaults to true.
+  final ValueNotifier<bool> isEnabled;
+
   Map<String, dynamic> toMap() => <String, dynamic>{
         'dartType': runtimeType.toString(),
+        'isEnabled': isEnabled.value.toString(),
         'shape': shape?.toMap(),
         'position': convertVector3ToMap(position?.value),
         'scale': convertVector3ToMap(scale?.value),

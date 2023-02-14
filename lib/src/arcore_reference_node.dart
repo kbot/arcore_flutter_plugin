@@ -14,6 +14,7 @@ class ArCoreReferenceNode extends ArCoreNode {
     String? name,
     this.object3DFileName,
     this.objectUrl,
+    bool isEnabled = true,
     List<ArCoreNode> children = const [],
     Vector3? position,
     Vector3? scale,
@@ -23,7 +24,8 @@ class ArCoreReferenceNode extends ArCoreNode {
             children: children,
             position: position,
             scale: scale,
-            rotation: rotation);
+            rotation: rotation,
+            isEnabled: isEnabled);
 
   @override
   Map<String, dynamic> toMap() => <String, dynamic>{

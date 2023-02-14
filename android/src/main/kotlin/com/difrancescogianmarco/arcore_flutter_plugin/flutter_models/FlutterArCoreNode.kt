@@ -26,6 +26,8 @@ class FlutterArCoreNode(map: HashMap<String, *>) {
 
     val children: ArrayList<FlutterArCoreNode> = getChildrenFromMap(map["children"] as ArrayList<HashMap<String, *>>)
 
+    var isEnabled: Boolean? = map["isEnabled"] as? Boolean
+
     private fun getChildrenFromMap(list: ArrayList<HashMap<String, *>>): ArrayList<FlutterArCoreNode> {
         return ArrayList(list.map { map -> FlutterArCoreNode(map) })
     }
@@ -42,6 +44,7 @@ class FlutterArCoreNode(map: HashMap<String, *>) {
         node.localPosition = position
         node.localScale = scale
         node.localRotation = rotation
+        node.isEnabled = isEnabled ?: true
 
         return node
     }

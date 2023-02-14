@@ -202,7 +202,10 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
             "updateMaterials" -> {
                 debugLog(" updateMaterials")
                 updateMaterials(call, result)
-
+            }
+            "updateIsEnabled" -> {
+                debugLog(" updateIsEnabled")
+                updateIsEnabled(call, result)
             }
             "takeScreenshot" -> {
                 debugLog(" takeScreenshot")
@@ -504,6 +507,18 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
         if (oldMaterial != null) {
             val material = MaterialCustomFactory.updateMaterial(oldMaterial, materials[0])
             node.renderable?.material = material
+        }
+        result.success(null)
+    }
+
+    fun updateIsEnabled(call: MethodCall, result: MethodChannel.Result) {
+        val name = call.argument<String>("name")
+        val node = arSceneView?.scene?.findByName(name)
+        debugLog("node:  $node")
+        val enabled = call.argument<Boolean?>("enabled")
+        debugLog("enabled value:  $enabled")
+        if (enabled != null) {
+            node?.isEnabled = enabled
         }
         result.success(null)
     }
