@@ -166,6 +166,14 @@ class ArCoreController {
     return _channel.invokeMethod('getTrackingState');
   }
 
+  Future<ArCorePose?> getSensorPose() async {
+    final result = await _channel.invokeMethod<Map>('getSensorPose');
+    if (result == null) {
+      return Future.value(null);
+    }
+    return ArCorePose.fromMap(result);
+  }
+
   addArCoreNodeToAugmentedImage(ArCoreNode node, int index,
       {String? parentNodeName}) {
     final params = _addParentNodeNameToParams(node.toMap(), parentNodeName);

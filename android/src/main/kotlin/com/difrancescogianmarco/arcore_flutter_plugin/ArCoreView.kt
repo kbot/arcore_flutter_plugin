@@ -248,6 +248,17 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
                 debugLog("2/3: Tracking state is " + trState.toString())
                 methodChannel.invokeMethod("getTrackingState", trState.toString())
             }
+            "getSensorPose" -> {
+                debugLog("1/3: Requested Sensor Pose")
+                val sensorPose = arSceneView?.arFrame?.androidSensorPose
+                debugLog("2/3: Sensor Pose is " + sensorPose.toString())
+                if (sensorPose == null) {
+                    result.error("SENSOR_POSE_UNAVAILABLE", "sensor pose unavailable", null)
+                    return
+                }
+                result.success(mapOf("translation" to sensorPose.translation,
+                    "rotation" to sensorPose.rotationQuaternion))
+            }
             "togglePlaneRenderer" -> {
                 debugLog(" Toggle planeRenderer visibility" )
                 arSceneView!!.planeRenderer.isVisible = !arSceneView!!.planeRenderer.isVisible
