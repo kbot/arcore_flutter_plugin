@@ -108,7 +108,9 @@ class RenderableCustomFactory {
                         } catch (ex: Exception) {
                             Log.e(TAG, "renderable error ${ex}")
                             handler(null, ex)
-                            Toast.makeText(context, ex.toString(), Toast.LENGTH_LONG)
+                            if (BuildConfig.DEBUG) {
+                                Toast.makeText(context, ex.toString(), Toast.LENGTH_LONG)
+                            }
                         }
                     }
 
