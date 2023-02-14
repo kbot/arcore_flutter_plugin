@@ -18,11 +18,12 @@ class NodeFactory {
             }
             val node = flutterNode.buildNode()
             RenderableCustomFactory.makeRenderable(context, flutterNode) { renderable, t ->
-                if (renderable != null) {
+                if (t != null) {
+                    handler(null, t)
+                }
+                else {
                     node.renderable = renderable
                     handler(node, null)
-                }else{
-                    handler(null,t)
                 }
             }
         }
